@@ -1,147 +1,123 @@
 import { useEffect, useState } from "react";
 
-const services = [
-  { name: "Nginx", role: "Reverse Proxy", port: "80", tone: "purple" },
-  { name: "React.js", role: "Frontend UI", port: "5173", tone: "blue" },
-  { name: "Django 4.2", role: "Backend API", port: "8000", tone: "green" },
-  { name: "PostgreSQL 15.2", role: "Database", port: "5432", tone: "orange" },
-];
-
-function ServiceCard({ service }) {
+function Box({ className = "", title, subtitle, badge }) {
   return (
-    <article className={`service-card ${service.tone}`}>
-      <div className="service-icon">{service.name.slice(0, 1)}</div>
-      <div>
-        <h3>{service.name}</h3>
-        <p>{service.role}</p>
-      </div>
-      <span className="port">:{service.port}</span>
-    </article>
-  );
-}
-
-function App() {
-  const [health, setHealth] = useState(null);
-  const [error, setError] = useState("");
-  const [checkedAt, setCheckedAt] = useState("");
-
-  const checkHealth = async () => {
-    try {
-      setError("");
-      const response = await fetch("/api/health/", { cache: "no-store" });
-      if (!response.ok) throw new Error(`API returned HTTP ${response.status}`);
-      const data = await response.json();
-      setHealth(data);
-      setCheckedAt(new Date().toLocaleTimeString());
-    } catch (requestError) {
-      setHealth(null);
-      setError(requestError.message);
-    }
-  };
-
-  useEffect(() => {
-    checkHealth();
-  }, []);
-
-  const healthy = health?.status === "ok" && health?.database === "connected";
-
-  return (
-    <div className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="#top">
-          <span className="brand-mark">DS</span>
-          <span>
-            <strong>Infrastructure Lab</strong>
-            <small>Qualification Test</small>
-          </span>
-        </a>
-        <nav>
-          <a href="#architecture">Architecture</a>
-          <a href="#services">Services</a>
-          <a href="#health">Health</a>
-        </nav>
-        <span className={`live-pill ${healthy ? "online" : "checking"}`}>
-          <i /> {healthy ? "All systems operational" : "Checking systems"}
-        </span>
-      </header>
-
-      <main id="top">
-        <section className="hero">
-          <div className="hero-copy">
-            <span className="eyebrow">DOCKERIZED WEB APPLICATION</span>
-            <h1>Scalable infrastructure,<br /><em>clearly connected.</em></h1>
-            <p>
-              A production-minded multi-container environment combining Nginx,
-              React.js, Django, and PostgreSQL on an isolated Docker network.
-            </p>
-            <div className="hero-actions">
-              <a className="button primary" href="#architecture">Explore architecture</a>
-              <a className="button secondary" href="/api/health/" target="_blank" rel="noreferrer">Open health API</a>
-            </div>
-          </div>
-          <div className="terminal-card">
-            <div className="terminal-head"><span /><span /><span /><b>docker compose ps</b></div>
-            <pre>{`SERVICE       STATUS          PORTS
-nginx         Up              0.0.0.0:80->80
-frontend      Up              5173/tcp
-backend       Up              8000/tcp
-db            Up (healthy)    5432/tcp`}</pre>
-            <div className="terminal-result"><i /> Environment running successfully</div>
-          </div>
-        </section>
-
-        <section id="health" className="health-strip">
-          <div>
-            <span className="section-kicker">LIVE HEALTH CHECK</span>
-            <h2>{healthy ? "Environment is healthy" : error ? "Environment needs attention" : "Checking environment"}</h2>
-            <p>{checkedAt ? `Last verified at ${checkedAt}` : "Contacting the Django API through Nginx..."}</p>
-          </div>
-          <div className="health-metrics">
-            <div><span>Backend API</span><strong className={healthy ? "good" : "wait"}>{health?.status || "checking"}</strong></div>
-            <div><span>Database</span><strong className={healthy ? "good" : "wait"}>{health?.database || error || "checking"}</strong></div>
-            <button onClick={checkHealth}>Refresh status</button>
-          </div>
-        </section>
-
-        <section id="architecture" className="content-section">
-          <div className="section-heading">
-            <div><span className="section-kicker">SYSTEM ARCHITECTURE</span><h2>One entry point, four focused services</h2></div>
-            <p>Nginx controls public traffic while application and database ports remain internal to the Docker bridge network.</p>
-          </div>
-
-          <div className="architecture-card">
-            <div className="node user-node"><span>01</span><b>User / Browser</b><small>HTTP request</small></div>
-            <div className="flow-line"><b>Port 80</b><i>â†’</i></div>
-            <div className="docker-boundary">
-              <span className="boundary-label">DOCKER NETWORK Â· app_network</span>
-              <div className="node nginx-node"><span>02</span><b>Nginx</b><small>Reverse proxy</small></div>
-              <div className="route-grid">
-                <div className="route"><em>/</em><i>â†’</i><div className="node"><b>React.js</b><small>Frontend :5173</small></div></div>
-                <div className="route"><em>/api/*</em><i>â†’</i><div className="node"><b>Django</b><small>Gunicorn :8000</small></div><i>â†’</i><div className="node database"><b>PostgreSQL</b><small>Database :5432</small></div></div>
-              </div>
-              <div className="volume"><b>Persistent Volume</b><small>postgres_data</small></div>
-            </div>
-          </div>
-        </section>
-
-        <section id="services" className="content-section services-section">
-          <div className="section-heading">
-            <div><span className="section-kicker">SERVICE INVENTORY</span><h2>Independent containers, shared purpose</h2></div>
-            <p>Each component has a single responsibility and communicates through Docker service discovery.</p>
-          </div>
-          <div className="service-grid">{services.map((service) => <ServiceCard key={service.name} service={service} />)}</div>
-        </section>
-
-        <section className="principles">
-          <div><span>01</span><h3>Secure by default</h3><p>Only Nginx publishes a host port. Database and application services remain internal.</p></div>
-          <div><span>02</span><h3>Persistent data</h3><p>PostgreSQL uses a named volume so data survives container recreation.</p></div>
-          <div><span>03</span><h3>Observable health</h3><p>The API executes a real database query and reports the end-to-end connection status.</p></div>
-        </section>
-      </main>
-
-      <footer><b>Infrastructure Qualification Test</b><span>PostgreSQL Â· Django Â· React.js Â· Nginx Â· Docker Compose</span></footer>
+    <div className={`arch-box ${className}`}>
+      {badge && <span className="badge">{badge}</span>}
+      <strong>{title}</strong>
+      {subtitle && <small>{subtitle}</small>}
     </div>
   );
 }
 
-export default App;
+function Arrow({ label, vertical = false }) {
+  return (
+    <div className={vertical ? "arrow vertical" : "arrow"}>
+      {label && <span>{label}</span>}
+      <b>{vertical ? "Ã¢â€ â€œ" : "Ã¢â€ â€™"}</b>
+    </div>
+  );
+}
+
+export default function App() {
+  const [health, setHealth] = useState({ status: "checking", database: "checking" });
+  const [lastChecked, setLastChecked] = useState("Waiting for response");
+
+  async function refreshHealth() {
+    setHealth({ status: "checking", database: "checking" });
+    try {
+      const response = await fetch("/api/health/", { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      setHealth(data);
+      setLastChecked(`Verified ${new Date().toLocaleTimeString()}`);
+    } catch (error) {
+      setHealth({ status: "error", database: "unavailable" });
+      setLastChecked(error.message);
+    }
+  }
+
+  useEffect(() => { refreshHealth(); }, []);
+  const isHealthy = health.status === "ok" && health.database === "connected";
+
+  return (
+    <div className="page">
+      <header className="navbar">
+        <div className="brand"><span>IT</span><div><b>Infrastructure Lab</b><small>Qualification Project</small></div></div>
+        <nav><a href="#architecture">Architecture</a><a href="#services">Services</a><a href="#health">Health</a></nav>
+        <div className={`system-pill ${isHealthy ? "healthy" : "pending"}`}><i />{isHealthy ? "Systems operational" : "Checking systems"}</div>
+      </header>
+
+      <main>
+        <section className="hero">
+          <div className="hero-copy">
+            <p className="overline">DOCKERIZED WEB APPLICATION</p>
+            <h1>Infrastructure designed<br/><span>to work together.</span></h1>
+            <p className="lead">A multi-container environment combining PostgreSQL 15.2, Django 4.2, React.js and Nginx through a private Docker network.</p>
+            <div className="actions"><a href="#architecture">View architecture</a><a className="outline" href="/api/health/" target="_blank">Open health API</a></div>
+          </div>
+          <div className="code-window">
+            <div className="window-bar"><i/><i/><i/><span>docker compose ps</span></div>
+            <pre>{`SERVICE     STATUS          INTERNAL PORT
+nginx       running         80
+frontend    running         5173
+backend     running         8000
+db          healthy         5432`}</pre>
+            <div className="success-line">Ã¢â€”Â Environment is running</div>
+          </div>
+        </section>
+
+        <section id="health" className="health-panel">
+          <div><p className="overline">LIVE HEALTH CHECK</p><h2>{isHealthy ? "Application environment is healthy" : "Checking application environment"}</h2><small>{lastChecked}</small></div>
+          <div className="metrics">
+            <div><span>Django API</span><b className={health.status === "ok" ? "ok" : "warn"}>{health.status}</b></div>
+            <div><span>PostgreSQL</span><b className={health.database === "connected" ? "ok" : "warn"}>{health.database}</b></div>
+            <button onClick={refreshHealth}>Refresh</button>
+          </div>
+        </section>
+
+        <section id="architecture" className="section">
+          <div className="section-title"><div><p className="overline">SYSTEM ARCHITECTURE</p><h2>Request flow through the platform</h2></div><p>Nginx is the only public entry point. Frontend, backend and database traffic stays inside the Docker bridge network.</p></div>
+
+          <div className="diagram">
+            <Box className="user" title="Internet User" subtitle="Web browser" badge="PUBLIC" />
+            <Arrow vertical label="HTTP :80" />
+            <div className="network">
+              <div className="network-label">DOCKER BRIDGE NETWORK Ã‚Â· app_network</div>
+              <Box className="nginx" title="Nginx Reverse Proxy" subtitle="Single entry point Ã‚Â· Port 80" badge="PROXY" />
+              <div className="split-arrows"><div><span>/</span>Ã¢â€ â„¢</div><div><span>/api/*</span>Ã¢â€ Ëœ</div></div>
+              <div className="split">
+                <Box className="react" title="React Frontend" subtitle="Vite Ã‚Â· Port 5173" badge="UI" />
+                <Box className="django" title="Django Backend" subtitle="Gunicorn Ã‚Â· Port 8000" badge="API" />
+              </div>
+              <div className="backend-flow"><Arrow vertical label="SQL Ã‚Â· TCP 5432" /></div>
+              <div className="bottom-row">
+                <Box className="postgres" title="PostgreSQL 15.2" subtitle="Persistent relational database" badge="DATA" />
+                <div className="external"><Box className="optional" title="External APIs" subtitle="Optional future integration" badge="OPTIONAL" /><small>HTTPS from Django only</small></div>
+              </div>
+              <div className="volume-line">Ã¢â€ â€œ</div>
+              <div className="volume"><b>Docker Named Volume</b><span>postgres_data</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="services" className="section">
+          <div className="section-title"><div><p className="overline">SERVICE INVENTORY</p><h2>Four containers, clear responsibilities</h2></div></div>
+          <div className="cards">
+            <article><em>N</em><div><h3>Nginx</h3><p>Reverse proxy and route management</p></div><span>:80</span></article>
+            <article><em>R</em><div><h3>React.js</h3><p>Responsive user interface</p></div><span>:5173</span></article>
+            <article><em>D</em><div><h3>Django 4.2</h3><p>Backend API served by Gunicorn</p></div><span>:8000</span></article>
+            <article><em>P</em><div><h3>PostgreSQL 15.2</h3><p>Persistent application database</p></div><span>:5432</span></article>
+          </div>
+        </section>
+
+        <section className="highlights">
+          <div><b>01</b><h3>Isolated networking</h3><p>Only port 80 is published. Internal services use Docker DNS and private ports.</p></div>
+          <div><b>02</b><h3>Persistent storage</h3><p>The postgres_data named volume protects database data across container recreation.</p></div>
+          <div><b>03</b><h3>End-to-end verification</h3><p>The health endpoint executes a real database query to validate the complete request path.</p></div>
+        </section>
+      </main>
+      <footer><b>Infrastructure Qualification Test</b><span>Docker Compose Ã‚Â· PostgreSQL Ã‚Â· Django Ã‚Â· React.js Ã‚Â· Nginx</span></footer>
+    </div>
+  );
+}
