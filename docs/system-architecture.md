@@ -18,7 +18,7 @@ flowchart LR
     Nginx -->|"Route /"| Frontend
     Nginx -->|"Route /api/*"| Backend
     Nginx -->|"Route /admin/*"| Backend
-    Frontend -.->|"API /api/health/"| Nginx
+    Frontend -.->|"Auth + API /api/*"| Nginx
     Backend -->|"TCP 5432"| Database
     Database -->|"Persistent data"| Volume
 ```
@@ -29,4 +29,5 @@ flowchart LR
 2. Nginx routes / to React and /api/* or /admin/* to Django.
 3. Django connects to PostgreSQL through the internal Docker bridge network.
 4. PostgreSQL stores persistent data in the postgres_data named volume.
-5. No external API is required by this demonstration.
+5. Django's authentication endpoints store registered users in PostgreSQL's `auth_user` table with hashed passwords.
+6. No external API is required by this demonstration.

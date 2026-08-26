@@ -28,7 +28,7 @@ flowchart LR
     Nginx -->|"Route /"| Frontend
     Nginx -->|"Route /api/*"| Backend
     Nginx -->|"Route /admin/*"| Backend
-    Frontend -.->|"API /api/health/"| Nginx
+    Frontend -.->|"Auth + API /api/*"| Nginx
     Backend -->|"TCP 5432"| Database
     Database -->|"Persistent data"| Volume
 ```
@@ -45,12 +45,14 @@ Diagram source files are available in `docs/system-architecture.md` and `docs/sy
 - PostgreSQL data persists in the `postgres_data` named volume.
 - All services communicate through the `app_network` Docker bridge network.
 - The demonstration does not require an external API. Future external integrations should be handled by Django.
+- Django uses its built-in `auth_user` table in PostgreSQL for registered users; passwords are stored as hashes.
 
 ## Request Flow
 
 ```text
 Browser -> Nginx -> React
 React -> Nginx -> Django -> PostgreSQL
+React -> Nginx -> Django auth endpoints -> auth_user (PostgreSQL)
 ```
 
 ## Project Structure
@@ -124,7 +126,7 @@ Build and start all services:
 docker compose up -d --build
 ```
 
-## Verify the Environment
+## Check Container Status
 
 ```bash
 docker compose ps
@@ -141,23 +143,36 @@ nginx       Up
 
 Application URLs:
 
-- Frontend: `http://localhost/`
-- Health API: `http://localhost/api/health/`
+- Frontend and login page: `http://localhost/`
+- Authenticated health API: `http://localhost/api/health/`
 - Django Admin: `http://localhost/admin/`
 
-Test the API using PowerShell:
+## Create an Account and Sign In
+
+1. Open `http://localhost/`.
+2. Select **Register**, then supply a username (3–150 characters), valid email address, and password of at least 8 characters.
+3. After registration, the browser receives a same-origin Django session cookie and opens the dashboard.
+4. Use **Sign out** in the dashboard header to end the session.
+
+Registered user records are stored in PostgreSQL's Django-managed `auth_user` table. Passwords are never returned by the API and are stored using Django password hashes. The browser obtains a CSRF cookie before sending registration, login, or logout requests.
+
+## Verify the Environment
+
+The health endpoint requires an authenticated browser session. From the dashboard, its live response is shown in the **GET /api/health/** panel. An unauthenticated request intentionally returns HTTP 401.
+
+Test the unauthenticated protection using PowerShell:
 
 ```powershell
-Invoke-RestMethod -Uri "http://localhost/api/health/"
+Invoke-WebRequest -Uri "http://localhost/api/health/" -UseBasicParsing
 ```
 
-Or curl:
+Expected result:
 
-```bash
-curl http://localhost/api/health/
+```text
+401 Unauthorized
 ```
 
-Expected response:
+After signing in through the web UI, the dashboard receives a response like:
 
 ```json
 {
@@ -252,6 +267,7 @@ docker compose logs db --tail=100
 - The backend waits for PostgreSQL to become healthy.
 - Images and dependencies use explicit versions.
 - Nginx forwards standard reverse-proxy headers.
+- Django authentication uses same-origin session cookies and CSRF protection for state-changing requests.
 
 ## Author
 

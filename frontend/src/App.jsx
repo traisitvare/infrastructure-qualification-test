@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 function Badge({ ok, loading }) {
   const className = loading ? "badge pending" : ok ? "badge good" : "badge bad";
@@ -29,11 +29,43 @@ function ArchitectureNode({ tone, label, title, detail }) {
   );
 }
 
+function csrfToken() {
+  return document.cookie.split("; ").find((cookie) => cookie.startsWith("csrftoken="))?.split("=")[1] || "";
+}
+
+function AuthScreen({ mode, setMode, form, setForm, error, submitting, onSubmit }) {
+  const registering = mode === "register";
+  return (
+    <main className="auth-page">
+      <section className="auth-card">
+        <div className="brand"><span>IP</span><div><strong>InfraPulse</strong><small>VERIFICATION</small></div></div>
+        <p className="eyebrow">SECURE ACCESS</p>
+        <h1>{registering ? "Create your account" : "Welcome back"}</h1>
+        <p className="auth-copy">{registering ? "Register to access the verified infrastructure dashboard." : "Sign in to view live infrastructure evidence."}</p>
+        <form onSubmit={onSubmit} className="auth-form">
+          <label>Username<input value={form.username} onChange={(event) => setForm({ ...form, username: event.target.value })} autoComplete="username" minLength="3" required /></label>
+          {registering && <label>Email<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} autoComplete="email" required /></label>}
+          <label>Password<input type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} autoComplete={registering ? "new-password" : "current-password"} minLength="8" required /></label>
+          {error && <p className="auth-error">{error}</p>}
+          <button type="submit" disabled={submitting}>{submitting ? "Please wait..." : registering ? "Create account" : "Sign in"}</button>
+        </form>
+        <p className="auth-switch">{registering ? "Already have an account?" : "Need an account?"} <button type="button" onClick={() => { setMode(registering ? "login" : "register"); }}>{registering ? "Sign in" : "Register"}</button></p>
+      </section>
+    </main>
+  );
+}
+
 export default function App() {
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [roundTrip, setRoundTrip] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authMode, setAuthMode] = useState("login");
+  const [authForm, setAuthForm] = useState({ username: "", email: "", password: "" });
+  const [authError, setAuthError] = useState("");
+  const [authSubmitting, setAuthSubmitting] = useState(false);
 
   async function verify() {
     setLoading(true);
@@ -58,8 +90,50 @@ export default function App() {
   }
 
   useEffect(() => {
-    verify();
+    async function restoreSession() {
+      try {
+        await fetch("/api/auth/csrf/", { credentials: "same-origin" });
+        const response = await fetch("/api/auth/me/", { credentials: "same-origin" });
+        if (response.ok) setUser(await response.json());
+      } finally {
+        setAuthLoading(false);
+      }
+    }
+    restoreSession();
   }, []);
+
+  useEffect(() => {
+    if (user) verify();
+  }, [user]);
+
+  async function submitAuth(event) {
+    event.preventDefault();
+    setAuthSubmitting(true);
+    setAuthError("");
+    try {
+      const endpoint = authMode === "register" ? "/api/auth/register/" : "/api/auth/login/";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+        body: JSON.stringify(authForm)
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Unable to sign in");
+      setUser(body);
+      setAuthForm({ username: "", email: "", password: "" });
+    } catch (requestError) {
+      setAuthError(requestError.message || "Unable to sign in");
+    } finally {
+      setAuthSubmitting(false);
+    }
+  }
+
+  async function signOut() {
+    await fetch("/api/auth/logout/", { method: "POST", credentials: "same-origin", headers: { "X-CSRFToken": csrfToken() } });
+    setUser(null);
+    setHealth(null);
+  }
 
   const verified = health?.status === "ok" && health?.database === "connected";
   const rawResponse = health || {
@@ -67,6 +141,9 @@ export default function App() {
     database: "disconnected",
     message: error || "Waiting for health endpoint"
   };
+
+  if (authLoading) return <main className="auth-page"><p className="auth-loading">Loading secure access...</p></main>;
+  if (!user) return <AuthScreen mode={authMode} setMode={setAuthMode} form={authForm} setForm={setAuthForm} error={authError} submitting={authSubmitting} onSubmit={submitAuth} />;
 
   return (
     <div className="app-shell">
@@ -91,7 +168,7 @@ export default function App() {
       <div className="workspace">
         <header className="topbar">
           <span>Infrastructure / <b>Verified Overview</b></span>
-          <Badge ok={verified} loading={loading} />
+          <div className="topbar-actions"><span>Signed in as <b>{user.username}</b></span><button className="logout-button" onClick={signOut}>Sign out</button><Badge ok={verified} loading={loading} /></div>
         </header>
 
         <main id="overview">
@@ -155,18 +232,18 @@ export default function App() {
 
             <div className="diagram">
               <ArchitectureNode tone="user" label="PUBLIC" title="Internet User" detail="Web browser" />
-              <div className="arrow"><small>HTTP :80</small>â†“</div>
+              <div className="arrow"><small>HTTP :80</small>↓</div>
               <div className="network">
-                <span className="network-label">DOCKER BRIDGE NETWORK Â· app_network</span>
+                <span className="network-label">DOCKER BRIDGE NETWORK · app_network</span>
                 <ArchitectureNode tone="nginx" label="ENTRY POINT" title="Nginx Reverse Proxy" detail="Published port 80" />
-                <div className="routes"><span><i>/</i>â†™</span><span><i>/api/*</i>â†˜</span></div>
+                <div className="routes"><span><i>/</i>↙</span><span><i>/api/*</i>↘</span></div>
                 <div className="branches">
                   <ArchitectureNode tone="react" label="UI" title="React Frontend" detail="Internal port 5173" />
                   <div className="database-path">
-                    <ArchitectureNode tone="django" label="API" title="Django 4.2" detail="Gunicorn Â· port 8000" />
-                    <div className="arrow compact"><small>SQL Â· TCP 5432</small>â†“</div>
+                    <ArchitectureNode tone="django" label="API" title="Django 4.2" detail="Gunicorn · port 8000" />
+                    <div className="arrow compact"><small>SQL · TCP 5432</small>↓</div>
                     <ArchitectureNode tone="postgres" label="DATA" title="PostgreSQL 15.2" detail="Internal port 5432" />
-                    <div className="volume-arrow">â†“</div>
+                    <div className="volume-arrow">↓</div>
                     <div className="volume"><b>Named volume</b><small>postgres_data</small></div>
                   </div>
                 </div>
@@ -190,7 +267,7 @@ export default function App() {
           </section>
         </main>
 
-        <footer><b>Infrastructure Qualification Test</b><span>Nginx Â· React.js Â· Django 4.2 Â· PostgreSQL 15.2</span></footer>
+        <footer><b>Infrastructure Qualification Test</b><span>Nginx · React.js · Django 4.2 · PostgreSQL 15.2</span></footer>
       </div>
     </div>
   );
