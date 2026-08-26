@@ -1,93 +1,197 @@
 import { useEffect, useState } from "react";
 
-function Status({ ok, loading }) {
+function Badge({ ok, loading }) {
+  const className = loading ? "badge pending" : ok ? "badge good" : "badge bad";
   const text = loading ? "CHECKING" : ok ? "VERIFIED" : "UNAVAILABLE";
-  return <span className={`status ${loading ? "pending" : ok ? "ok" : "fail"}`}><i></i>{text}</span>;
+  return <span className={className}><i />{text}</span>;
+}
+
+function MetricCard({ title, value, detail, ok, loading, measured }) {
+  return (
+    <article className="metric-card">
+      <div className="metric-header">
+        <span>{title}</span>
+        {measured ? <label>MEASURED</label> : <Badge ok={ok} loading={loading} />}
+      </div>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
+  );
+}
+
+function ArchitectureNode({ tone, label, title, detail }) {
+  return (
+    <div className={`arch-node ${tone}`}>
+      <label>{label}</label>
+      <b>{title}</b>
+      <small>{detail}</small>
+    </div>
+  );
 }
 
 export default function App() {
   const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [latency, setLatency] = useState(null);
+  const [roundTrip, setRoundTrip] = useState(null);
 
-  async function checkHealth() {
+  async function verify() {
     setLoading(true);
     setError("");
-    const start = performance.now();
+    const started = performance.now();
+
     try {
       const response = await fetch("/api/health/", { cache: "no-store" });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
-      setLatency(Math.round((performance.now() - start) * 100) / 100);
+      if (!response.ok) {
+        throw new Error(body.error || `HTTP ${response.status}`);
+      }
+      setRoundTrip(Math.round((performance.now() - started) * 100) / 100);
       setHealth(body);
-    } catch (err) {
+    } catch (requestError) {
       setHealth(null);
-      setLatency(null);
-      setError(err.message || "Health endpoint unavailable");
+      setRoundTrip(null);
+      setError(requestError.message || "Health endpoint unavailable");
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => { checkHealth(); }, []);
+  useEffect(() => {
+    verify();
+  }, []);
+
   const verified = health?.status === "ok" && health?.database === "connected";
+  const rawResponse = health || {
+    status: "error",
+    database: "disconnected",
+    message: error || "Waiting for health endpoint"
+  };
 
   return (
-    <div className="app">
-      <header className="header">
-        <div className="brand"><b>IV</b><div><strong>Infrastructure Verification</strong><small>Qualification Project</small></div></div>
-        <nav><a href="#live">Live Status</a><a href="#architecture">Architecture</a><a href="#design">Design</a></nav>
-        <Status ok={verified} loading={loading} />
-      </header>
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <span>IP</span>
+          <div><strong>InfraPulse</strong><small>VERIFICATION</small></div>
+        </div>
+        <p className="nav-label">PROJECT</p>
+        <nav>
+          <a className="active" href="#overview">Overview</a>
+          <a href="#status">Live verification</a>
+          <a href="#architecture">Architecture</a>
+          <a href="#configuration">Configuration</a>
+        </nav>
+        <div className="sidebar-state">
+          <Badge ok={verified} loading={loading} />
+          <small>No simulated monitoring data</small>
+        </div>
+      </aside>
 
-      <main>
-        <section className="hero">
-          <div className="hero-copy">
-            <p className="kicker">LIVE DJANGO AND POSTGRESQL CHECK</p>
-            <h1>Infrastructure status<br/><em>verified by real data.</em></h1>
-            <p>The browser calls Django through Nginx. Django executes a live PostgreSQL query and returns the database identity, version, query timing, and verification timestamp.</p>
-            <div className="buttons"><button onClick={checkHealth} disabled={loading}>{loading ? "Checking..." : "Run verification"}</button><a href="/api/health/" target="_blank" rel="noreferrer">Open raw API</a></div>
-          </div>
-          <div className="terminal"><div className="dots"><i/><i/><i/><span>GET /api/health/</span></div><pre>{health ? JSON.stringify(health, null, 2) : error ? JSON.stringify({status:"error", database:"disconnected", message:error}, null, 2) : "Waiting for response..."}</pre></div>
-        </section>
+      <div className="workspace">
+        <header className="topbar">
+          <span>Infrastructure / <b>Verified Overview</b></span>
+          <Badge ok={verified} loading={loading} />
+        </header>
 
-        <section id="live" className="section">
-          <div className="heading"><div><p className="kicker">VERIFIED STATUS</p><h2>Evidence from the running stack</h2></div><p>When the API or database fails, this page reports unavailable. There is no healthy fallback.</p></div>
-          <div className="cards">
-            <article><div className="card-head"><span>Django API</span><Status ok={verified} loading={loading}/></div><strong>{loading ? "checking" : health?.status || "error"}</strong><small>GET /api/health/ through Nginx</small></article>
-            <article><div className="card-head"><span>PostgreSQL</span><Status ok={health?.database === "connected"} loading={loading}/></div><strong>{loading ? "checking" : health?.database || "disconnected"}</strong><small>Live SQL query executed by Django</small></article>
-            <article><div className="card-head"><span>HTTP round trip</span><label>MEASURED</label></div><strong>{latency === null ? "N/A" : `${latency} ms`}</strong><small>Browser to API and back</small></article>
-            <article><div className="card-head"><span>Database query</span><label>MEASURED</label></div><strong>{health?.database_query_ms === undefined ? "N/A" : `${health.database_query_ms} ms`}</strong><small>Measured inside Django</small></article>
-          </div>
-          {error && <div className="error"><b>Verification failed</b><span>{error}</span></div>}
-          <div className="evidence">
-            <div className="evidence-title"><div><p className="kicker">DATABASE EVIDENCE</p><h3>Values returned directly by PostgreSQL</h3></div><span>{health?.checked_at ? new Date(health.checked_at).toLocaleString() : "Not verified"}</span></div>
-            <div className="evidence-grid"><div><span>Database name</span><b>{health?.database_name || "Unavailable"}</b></div><div><span>Database user</span><b>{health?.database_user || "Unavailable"}</b></div><div><span>Server version</span><b>{health?.database_version ? `PostgreSQL ${health.database_version}` : "Unavailable"}</b></div><div><span>Connection state</span><b className={verified ? "green" : "red"}>{health?.database || "disconnected"}</b></div></div>
-          </div>
-        </section>
-
-        <section id="architecture" className="section">
-          <div className="heading"><div><p className="kicker">SYSTEM ARCHITECTURE</p><h2>Actual request and data flow</h2></div><p>Only Nginx exposes a host port. React, Django, and PostgreSQL stay inside the Docker bridge network.</p></div>
-          <div className="diagram">
-            <div className="node user"><label>PUBLIC</label><b>Internet User</b><small>Web browser</small></div>
-            <div className="arrow"><small>HTTP :80</small>â†“</div>
-            <div className="network"><span className="network-label">DOCKER BRIDGE NETWORK Â· app_network</span>
-              <div className="node nginx"><label>ENTRY POINT</label><b>Nginx Reverse Proxy</b><small>Published port 80</small></div>
-              <div className="route"><span><i>/</i>â†™</span><span><i>/api/*</i>â†˜</span></div>
-              <div className="branches">
-                <div className="node react"><label>UI</label><b>React Frontend</b><small>Internal port 5173</small></div>
-                <div className="db-path"><div className="node django"><label>API</label><b>Django 4.2</b><small>Gunicorn Â· port 8000</small></div><div className="arrow compact"><small>SQL Â· TCP 5432</small>â†“</div><div className="node postgres"><label>DATA</label><b>PostgreSQL 15.2</b><small>Internal port 5432</small></div><div className="volume-arrow">â†“</div><div className="volume"><b>Named volume</b><small>postgres_data</small></div></div>
+        <main id="overview">
+          <section className="hero">
+            <div>
+              <p className="eyebrow">LIVE DJANGO AND POSTGRESQL EVIDENCE</p>
+              <h1>Infrastructure status<br /><em>with real data.</em></h1>
+              <p className="lead">
+                The browser reaches Django through Nginx. Django executes a live
+                PostgreSQL query before returning database identity, version,
+                query duration, and timestamp.
+              </p>
+              <div className="actions">
+                <button onClick={verify} disabled={loading}>
+                  {loading ? "Checking..." : "Run verification"}
+                </button>
+                <a href="/api/health/" target="_blank" rel="noreferrer">Open raw API</a>
               </div>
             </div>
-          </div>
-        </section>
 
-        <section id="design" className="section"><div className="heading"><div><p className="kicker">DESIGN SUMMARY</p><h2>Configuration, not simulated monitoring</h2></div></div><div className="design"><article><span>Public exposure</span><b>Nginx :80</b><small>Only published application port</small></article><article><span>Internal DNS</span><b>Docker services</b><small>frontend, backend, and db</small></article><article><span>Persistence</span><b>postgres_data</b><small>PostgreSQL named volume</small></article><article><span>Verification</span><b>/api/health/</b><small>Real API and database query</small></article></div></section>
+            <div className="terminal">
+              <div className="terminal-header"><i /><i /><i /><span>GET /api/health/</span></div>
+              <pre>{JSON.stringify(rawResponse, null, 2)}</pre>
+            </div>
+          </section>
 
-        <section className="truth"><div><b>Data transparency</b><p>No fake uptime, CPU, memory, event history, or invented service latency is included. Use <code>docker compose ps</code> for container state.</p></div><Status ok={verified} loading={loading}/></section>
-      </main>
-      <footer><b>Infrastructure Qualification Test</b><span>Nginx Â· React.js Â· Django 4.2 Â· PostgreSQL 15.2</span></footer>
+          <section id="status" className="section">
+            <div className="section-heading">
+              <div><p className="eyebrow">VERIFIED STATUS</p><h2>Evidence from the running stack</h2></div>
+              <p>A failed API or database request is shown as unavailable. There is no healthy fallback.</p>
+            </div>
+
+            <div className="metric-grid">
+              <MetricCard title="Django API" value={loading ? "checking" : health?.status || "error"} detail="GET /api/health/ through Nginx" ok={verified} loading={loading} />
+              <MetricCard title="PostgreSQL" value={loading ? "checking" : health?.database || "disconnected"} detail="Live SQL query executed by Django" ok={health?.database === "connected"} loading={loading} />
+              <MetricCard title="HTTP round trip" value={roundTrip == null ? "N/A" : `${roundTrip} ms`} detail="Browser to API and back" measured />
+              <MetricCard title="Database query" value={health?.database_query_ms == null ? "N/A" : `${health.database_query_ms} ms`} detail="Measured inside Django" measured />
+            </div>
+
+            {error && <div className="error-box"><b>Verification failed</b><span>{error}</span></div>}
+
+            <div className="evidence-panel">
+              <div className="evidence-title">
+                <div><p className="eyebrow">DATABASE EVIDENCE</p><h3>Returned directly by PostgreSQL</h3></div>
+                <span>{health?.checked_at ? new Date(health.checked_at).toLocaleString() : "Not verified"}</span>
+              </div>
+              <div className="evidence-grid">
+                <div><span>Database name</span><b>{health?.database_name || "Unavailable"}</b></div>
+                <div><span>Database user</span><b>{health?.database_user || "Unavailable"}</b></div>
+                <div><span>Server version</span><b>{health?.database_version ? `PostgreSQL ${health.database_version}` : "Unavailable"}</b></div>
+                <div><span>Connection state</span><b className={verified ? "green" : "red"}>{health?.database || "disconnected"}</b></div>
+              </div>
+            </div>
+          </section>
+
+          <section id="architecture" className="section">
+            <div className="section-heading">
+              <div><p className="eyebrow">SYSTEM ARCHITECTURE</p><h2>Actual request and data flow</h2></div>
+              <p>Only Nginx publishes a host port. React, Django, and PostgreSQL stay inside app_network.</p>
+            </div>
+
+            <div className="diagram">
+              <ArchitectureNode tone="user" label="PUBLIC" title="Internet User" detail="Web browser" />
+              <div className="arrow"><small>HTTP :80</small>â†“</div>
+              <div className="network">
+                <span className="network-label">DOCKER BRIDGE NETWORK Â· app_network</span>
+                <ArchitectureNode tone="nginx" label="ENTRY POINT" title="Nginx Reverse Proxy" detail="Published port 80" />
+                <div className="routes"><span><i>/</i>â†™</span><span><i>/api/*</i>â†˜</span></div>
+                <div className="branches">
+                  <ArchitectureNode tone="react" label="UI" title="React Frontend" detail="Internal port 5173" />
+                  <div className="database-path">
+                    <ArchitectureNode tone="django" label="API" title="Django 4.2" detail="Gunicorn Â· port 8000" />
+                    <div className="arrow compact"><small>SQL Â· TCP 5432</small>â†“</div>
+                    <ArchitectureNode tone="postgres" label="DATA" title="PostgreSQL 15.2" detail="Internal port 5432" />
+                    <div className="volume-arrow">â†“</div>
+                    <div className="volume"><b>Named volume</b><small>postgres_data</small></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section id="configuration" className="section">
+            <div className="section-heading"><div><p className="eyebrow">DESIGN SUMMARY</p><h2>Configuration, not fake monitoring</h2></div></div>
+            <div className="config-grid">
+              <article><span>Public exposure</span><b>Nginx :80</b><small>Only published application port</small></article>
+              <article><span>Internal DNS</span><b>Docker services</b><small>frontend, backend, and db</small></article>
+              <article><span>Persistence</span><b>postgres_data</b><small>PostgreSQL named volume</small></article>
+              <article><span>Verification</span><b>/api/health/</b><small>Real API and database query</small></article>
+            </div>
+          </section>
+
+          <section className="transparency">
+            <div><b>Data transparency</b><p>No fake uptime, CPU, memory, event history, or invented service latency is displayed. Use <code>docker compose ps</code> for container state.</p></div>
+            <Badge ok={verified} loading={loading} />
+          </section>
+        </main>
+
+        <footer><b>Infrastructure Qualification Test</b><span>Nginx Â· React.js Â· Django 4.2 Â· PostgreSQL 15.2</span></footer>
+      </div>
     </div>
   );
 }
