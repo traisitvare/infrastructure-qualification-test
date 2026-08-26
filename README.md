@@ -56,30 +56,29 @@ React -> Nginx -> Django -> PostgreSQL
 ## Project Structure
 
 ```text
-.
-Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ backend/
-Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ app/
-Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ config/
-Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ Dockerfile
-Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ entrypoint.sh
-Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ manage.py
-Ã¢â€â€š   Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ requirements.txt
-Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ frontend/
-Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ src/
-Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ Dockerfile
-Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ index.html
-Ã¢â€â€š   Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ package.json
-Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ nginx/
-Ã¢â€â€š   Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ nginx.conf
-Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ docs/
-Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ system-architecture.md
-Ã¢â€â€š   Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ system-architecture.mmd
-Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ .env.example
-Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ .gitignore
-Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ docker-compose.yml
-Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ README.md
+project-root/
+|-- backend/
+|   |-- app/                 # Django health API
+|   |-- config/              # Django project settings
+|   |-- Dockerfile           # Backend container image
+|   |-- entrypoint.sh        # Migration and Gunicorn startup
+|   |-- manage.py
+|   `-- requirements.txt
+|-- frontend/
+|   |-- src/                 # React components and styles
+|   |-- Dockerfile           # Frontend container image
+|   |-- index.html
+|   `-- package.json
+|-- nginx/
+|   `-- nginx.conf           # Reverse proxy routing rules
+|-- docs/
+|   |-- system-architecture.md
+|   `-- system-architecture.mmd
+|-- .env.example             # Environment variable template
+|-- .gitignore
+|-- docker-compose.yml       # Multi-container orchestration
+`-- README.md
 ```
-
 ## Prerequisites
 
 - Git
