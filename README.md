@@ -257,3 +257,23 @@ docker compose logs db --tail=100
 
 Traisit Wareeratpakron  
 IT Infrastructure Developer Qualification Test
+## Dashboard Data Transparency
+
+The frontend is an infrastructure verification dashboard, not a monitoring platform.
+
+Live values are returned by `GET /api/health/`:
+
+- Django API status
+- PostgreSQL connection status
+- Database name
+- Database user
+- PostgreSQL server version
+- Database verification query duration
+- Health-check timestamp
+- Browser-to-API HTTP round-trip duration
+
+The dashboard intentionally does not display simulated uptime percentages, CPU or memory charts, invented service latency, or static operational events. Container state should be verified using:
+
+```bash
+docker compose ps
+```
